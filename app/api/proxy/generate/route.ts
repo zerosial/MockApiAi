@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OpenAI } from "openai";
 import { prisma } from "@/lib/prisma";
-import { getOptionalAuthUser, getProxyAccessByName } from "@/lib/proxyAccess";
+import { requireAuthUser, getProxyAccessByName } from "@/lib/proxyAccess";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -14,7 +14,10 @@ interface Field {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getOptionalAuthUser();
+    // 관리(Mock 생성)는 로그인 필수. 비로그인은 401. (PUBLIC 사용=passthrough는 별도로 오픈)
+    const authResult = await requireAuthUser();
+    if (authResult.errorResponse) return authResult.errorResponse;
+    const user = authResult.user;
 
     const {
       proxyServerName,

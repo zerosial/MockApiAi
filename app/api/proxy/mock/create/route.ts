@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOptionalAuthUser, getProxyAccessByName } from "@/lib/proxyAccess";
+import { requireAuthUser, getProxyAccessByName } from "@/lib/proxyAccess";
 
 // 통신 로그 기반 Mock API 생성
 export async function POST(req: NextRequest) {
   try {
-    const user = await getOptionalAuthUser();
+    // 관리(Mock 생성)는 로그인 필수. 비로그인은 401.
+    const authResult = await requireAuthUser();
+    if (authResult.errorResponse) return authResult.errorResponse;
+    const user = authResult.user;
 
     const {
       proxyServerName,
