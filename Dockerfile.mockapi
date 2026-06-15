@@ -30,7 +30,6 @@ ENV NODE_ENV=production
 ENV NEXT_PUBLIC_BASE_PATH=/mockapi
 ENV OPENAI_API_KEY=dummy-key-for-build
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
-ENV LLM_SERVICE_URL=http://local-llm-container:8000
 
 # Next.js 빌드
 RUN npm run build
@@ -45,9 +44,9 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# 헬스체크 추가
+# 헬스체크 추가 (basePath 포함 홈 경로로 확인)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:3000/api/llm/health || exit 1
+    CMD curl -f http://localhost:3000/mockapi || exit 1
 
 # 컨테이너 시작: DB 대기 → 마이그레이션 적용 → 서버 시작
 CMD ["bash", "-lc", "\
