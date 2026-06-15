@@ -26,7 +26,6 @@ export default function Navigation() {
       description: "JSON 기반 Mock API 생성",
     },
     { href: "/proxy", label: "프록시 서버", description: "프록시 서버 관리" },
-    { href: "/llm-chat", label: "AI 채팅", description: "로컬 LLM과 대화" },
   ];
 
   return (

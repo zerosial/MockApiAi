@@ -2,14 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma";
 import { isReservedProjectName, isReservedUserName } from "@/lib/constants";
-import {
-  localLLM,
-  createLocalLLMClient,
-  ChatCompletionResponse,
-} from "@/lib/local-llm";
-
-// 로컬 LLM 클라이언트 생성 (환경변수에서 URL 가져오기)
-const llmClient = createLocalLLMClient();
 
 interface Field {
   name: string;
@@ -84,77 +76,25 @@ export async function POST(req: NextRequest) {
 
     console.log("Final responseObject:", responseObject);
 
-    // 로컬 LLM을 사용하여 OpenAPI 스펙 생성
-    const prompt = `다음 정보를 사용하여 OpenAPI 3.0 JSON 스펙을 만들어 주세요.
-
-API 이름: ${apiName}
-메서드: ${method}
-경로: ${url}
-요청 필드: ${JSON.stringify(requestFields)}
-응답 필드: ${JSON.stringify(responseFields)}
-
-요구사항: 
-- summary, parameters, requestBody, responses 항목을 포함해야 합니다.
-- 200 응답의 예제 값을 포함해야 합니다.
-- JSON 형식으로만 응답해주세요.`;
-
-    let completion: ChatCompletionResponse | null = null;
-
-    try {
-      // 로컬 LLM 서비스 상태 확인
-      const health = await llmClient.healthCheck();
-      if (!health.model_loaded) {
-        throw new Error("로컬 LLM 모델이 아직 로드되지 않았습니다.");
-      }
-
-      completion = await llmClient.createChatCompletion({
-        model: "exaone-4.0-1.2b",
-        messages: [
-          {
-            role: "system",
-            content:
-              "당신은 API 설계자입니다. OpenAPI 3.0 스펙을 생성하는 전문가입니다. JSON 형식으로만 응답해주세요.",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 2000,
-      });
-
-      console.log("로컬 LLM 응답:", completion);
-    } catch (llmError) {
-      console.error("로컬 LLM 오류:", llmError);
-      // 로컬 LLM 실패 시 기본 스펙 생성
-      console.log("기본 스펙 생성으로 폴백");
-      completion = null;
-    }
-
-    const specText = completion?.choices?.[0]?.message?.content || "{}";
-    let specJson;
-
-    try {
-      specJson = JSON.parse(specText);
-    } catch (error) {
-      // JSON 파싱 실패 시 기본 스펙 생성
-      specJson = {
-        openapi: "3.0.0",
-        info: {
-          title: apiName,
-          version: "1.0.0",
-        },
-        paths: {
-          [url]: {
-            [method.toLowerCase()]: {
-              summary: apiName,
-              responses: {
-                "200": {
-                  description: "Success",
-                  content: {
-                    "application/json": {
-                      schema: {
-                        type: "object",
-                        properties: responseObject,
-                      },
+    // 입력 필드로부터 OpenAPI 3.0 스펙을 직접 생성합니다(로컬 LLM 의존 제거).
+    const specJson = {
+      openapi: "3.0.0",
+      info: {
+        title: apiName,
+        version: "1.0.0",
+      },
+      paths: {
+        [url]: {
+          [method.toLowerCase()]: {
+            summary: apiName,
+            responses: {
+              "200": {
+                description: "Success",
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      properties: responseObject,
                     },
                   },
                 },
@@ -162,8 +102,8 @@ API 이름: ${apiName}
             },
           },
         },
-      };
-    }
+      },
+    };
 
     // 데이터베이스에 템플릿 저장
     const template = await prisma.template.create({
